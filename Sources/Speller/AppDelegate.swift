@@ -12,5 +12,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey = HotkeyManager()
         hotkey.onTrigger = { NSLog("Speller: hotkey fired") }   // replaced in Task 13
         hotkey.register()
+        _ = SelectionService.ensureAccessibility()
     }
 }
