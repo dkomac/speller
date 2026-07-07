@@ -12,6 +12,8 @@ struct SuggestionView: View {
     @State private var loading = false
     @State private var errored = false
     @State private var searchTask: Task<Void, Never>?
+    @State private var hasAccepted = false
+    @State private var reloadToken = 0
     @FocusState private var fieldFocused: Bool
 
     init(initialQuery: String, load: @escaping (String) async -> [String],
@@ -59,6 +61,7 @@ struct SuggestionView: View {
         .onKeyPress(.escape) { onCancel(); return .handled }
         .onChange(of: query) { _, _ in scheduleReload() }   // debounced auto-search while typing
         .task { fieldFocused = true; await reload() }
+        .onDisappear { searchTask?.cancel() }
     }
 
     /// Debounce text edits so we search when the user pauses, not on every keystroke.
@@ -72,10 +75,14 @@ struct SuggestionView: View {
     }
 
     private func reload() async {
+        reloadToken += 1
+        let token = reloadToken
+        let sentQuery = query
         loading = true; errored = false
-        let result = await load(query)
+        let result = await load(sentQuery)
+        guard token == reloadToken else { return }   // a newer reload superseded this one
         suggestions = result
-        errored = result.isEmpty && !query.trimmingCharacters(in: .whitespaces).isEmpty
+        errored = result.isEmpty && !sentQuery.trimmingCharacters(in: .whitespaces).isEmpty
         selection = 0
         loading = false
     }
@@ -86,7 +93,8 @@ struct SuggestionView: View {
     }
 
     private func accept() {
-        guard suggestions.indices.contains(selection) else { return }
+        guard !hasAccepted, suggestions.indices.contains(selection) else { return }
+        hasAccepted = true
         onAccept(suggestions[selection])
     }
 }
