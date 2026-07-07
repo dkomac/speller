@@ -39,7 +39,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let client = makeClient()
             popup.show(
                 initialWord: word,
-                load: { query in (try? await client.suggestions(for: query)) ?? [] },
+                load: { query in
+                    do { return .suggestions(try await client.suggestions(for: query)) }
+                    catch SpellClientError.missingKey { return .needsAPIKey }
+                    catch { return .failed }
+                },
                 onAccept: { [weak self] chosen in
                     Task { await self?.selection.replaceSelection(with: chosen) }
                 })

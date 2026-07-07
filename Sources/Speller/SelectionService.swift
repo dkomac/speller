@@ -12,17 +12,21 @@ final class SelectionService {
         return AXIsProcessTrustedWithOptions(opts)
     }
 
-    /// Simulates ⌘C, returns the copied text (or nil if nothing was selected).
+    /// Simulates ⌘C, reads the copied text, then restores the user's clipboard
+    /// immediately so cancel/error paths never leave the clipboard clobbered.
+    /// Returns the copied text (or nil if nothing was selected).
     func captureSelection() async -> String? {
         clipboard.snapshotAndClear()
         postCommandKey(0x08) // 'c'
         try? await Task.sleep(nanoseconds: 120_000_000) // 120ms for the app to place text
         let selected = clipboard.currentString()
+        clipboard.restore()
         return (selected?.isEmpty == false) ? selected : nil
     }
 
-    /// Places `word` on the pasteboard, simulates ⌘V, then restores the user's clipboard.
+    /// Snapshots the clipboard, places `word`, simulates ⌘V, then restores the clipboard.
     func replaceSelection(with word: String) async {
+        clipboard.snapshotAndClear()
         clipboard.placeForPaste(word)
         postCommandKey(0x09) // 'v'
         try? await Task.sleep(nanoseconds: 120_000_000)

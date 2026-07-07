@@ -10,7 +10,7 @@ final class PopupController {
     private var panel: KeyablePanel?
 
     func show(initialWord: String?,
-              load: @escaping (String) async -> [String],
+              load: @escaping (String) async -> SpellLoadOutcome,
               onAccept: @escaping (String) -> Void) {
         close()
 
@@ -29,7 +29,11 @@ final class PopupController {
         panel.titlebarAppearsTransparent = true
         panel.isFloatingPanel = true
         panel.level = .floating
-        panel.contentView = NSHostingView(rootView: view)
+
+        let hosting = NSHostingController(rootView: view)
+        hosting.sizingOptions = [.preferredContentSize]
+        panel.contentViewController = hosting
+
         panel.center()
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)

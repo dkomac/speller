@@ -1,8 +1,18 @@
 import SwiftUI
 
+enum SpellLoadOutcome {
+    case suggestions([String])
+    case needsAPIKey
+    case failed
+}
+
+private enum PopupMessage {
+    case none, needsKey, failed
+}
+
 struct SuggestionView: View {
     let initialQuery: String
-    let load: (String) async -> [String]
+    let load: (String) async -> SpellLoadOutcome
     let onAccept: (String) -> Void
     let onCancel: () -> Void
 
@@ -10,13 +20,13 @@ struct SuggestionView: View {
     @State private var suggestions: [String] = []
     @State private var selection = 0
     @State private var loading = false
-    @State private var errored = false
+    @State private var message: PopupMessage = .none
     @State private var searchTask: Task<Void, Never>?
     @State private var hasAccepted = false
     @State private var reloadToken = 0
     @FocusState private var fieldFocused: Bool
 
-    init(initialQuery: String, load: @escaping (String) async -> [String],
+    init(initialQuery: String, load: @escaping (String) async -> SpellLoadOutcome,
          onAccept: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
         self.initialQuery = initialQuery
         self.load = load
@@ -37,7 +47,10 @@ struct SuggestionView: View {
 
             if loading {
                 Text("Thinking…").foregroundStyle(.secondary)
-            } else if errored {
+            } else if message == .needsKey {
+                Text("Add your OpenRouter API key in Settings (menu bar → Settings…).")
+                    .foregroundStyle(.secondary).font(.callout)
+            } else if message == .failed {
                 Text("Couldn't reach the model. Your text is untouched.")
                     .foregroundStyle(.secondary).font(.callout)
             } else if suggestions.isEmpty {
@@ -49,7 +62,7 @@ struct SuggestionView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(i == selection ? Color.accentColor.opacity(0.25) : .clear)
                         .clipShape(RoundedRectangle(cornerRadius: 5))
-                        .onTapGesture { onAccept(word) }
+                        .onTapGesture { selection = i; accept() }
                 }
             }
         }
@@ -78,11 +91,21 @@ struct SuggestionView: View {
         reloadToken += 1
         let token = reloadToken
         let sentQuery = query
-        loading = true; errored = false
-        let result = await load(sentQuery)
+        let hasText = !sentQuery.trimmingCharacters(in: .whitespaces).isEmpty
+        loading = true; message = .none
+        let outcome = await load(sentQuery)
         guard token == reloadToken else { return }   // a newer reload superseded this one
-        suggestions = result
-        errored = result.isEmpty && !sentQuery.trimmingCharacters(in: .whitespaces).isEmpty
+        switch outcome {
+        case .suggestions(let list):
+            suggestions = list
+            message = (list.isEmpty && hasText) ? .failed : .none
+        case .needsAPIKey:
+            suggestions = []
+            message = hasText ? .needsKey : .none
+        case .failed:
+            suggestions = []
+            message = hasText ? .failed : .none
+        }
         selection = 0
         loading = false
     }
