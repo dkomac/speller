@@ -1,4 +1,7 @@
-import SpellerCore
+import AppKit
 
-// Real bootstrap is added in Task 8. Placeholder keeps the executable target valid.
-print("Speller \(SpellerCore.libraryVersion)")
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+app.setActivationPolicy(.accessory)   // menu-bar only, no Dock icon
+app.run()
