@@ -3,3 +3,6 @@ build/
 DerivedData/
 *.xcuserstate
 xcuserdata/
+
+# SDD scratch
+.superpowers/
