@@ -35,4 +35,11 @@ final class ClipboardServiceTests: XCTestCase {
         svc.restore()
         XCTAssertNil(pb.readString())
     }
+
+    func test_restore_beforeSnapshot_isNoOp() {
+        let pb = FakePasteboard(); pb.writeString("untouched")
+        let svc = ClipboardService(pb)
+        svc.restore()
+        XCTAssertEqual(pb.readString(), "untouched")
+    }
 }
