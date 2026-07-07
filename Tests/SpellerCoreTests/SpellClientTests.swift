@@ -62,6 +62,14 @@ final class SpellClientTests: XCTestCase {
             XCTAssertEqual(error as? SpellClientError, .http(429))
         }
     }
+
+    func test_suggestions_transportFailure_throws() async {
+        let client = SpellClient(endpoint: endpoint, apiKey: "k", model: "m",
+                                 transport: StubTransport(result: .failure(URLError(.notConnectedToInternet))))
+        await XCTAssertThrowsErrorAsync(try await client.suggestions(for: "word")) { error in
+            XCTAssertEqual(error as? SpellClientError, .transport)
+        }
+    }
 }
 
 // Small async-throws assertion helper.
