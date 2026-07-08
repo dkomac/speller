@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var apiKey: String
     @State private var model: String
     @State private var endpoint: String
+    @State private var useContext: Bool
     @State private var status: SaveStatus = .none
 
     init(settings: SettingsStore, secrets: SecretStore) {
@@ -18,6 +19,7 @@ struct SettingsView: View {
         _apiKey = State(initialValue: secrets.apiKey)
         _model = State(initialValue: settings.model)
         _endpoint = State(initialValue: settings.endpoint)
+        _useContext = State(initialValue: settings.useContext)
     }
 
     var body: some View {
@@ -26,6 +28,11 @@ struct SettingsView: View {
                 SecureField("API key", text: $apiKey)
                 TextField("Model id", text: $model)
                 TextField("Endpoint", text: $endpoint)
+            }
+
+            Section("Context") {
+                Toggle("Use surrounding text as context (for language detection)",
+                       isOn: $useContext)
             }
 
             Text("Default provider is OpenRouter's free tier. Paste an OpenRouter API key and use a free model id (ending in :free).")
@@ -37,7 +44,7 @@ struct SettingsView: View {
                     Label("Saved", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green).font(.callout)
                 case .failed:
-                    Label("Couldn't save to Keychain", systemImage: "exclamationmark.triangle.fill")
+                    Label("Couldn't save", systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange).font(.callout)
                 case .none:
                     EmptyView()
@@ -54,6 +61,7 @@ struct SettingsView: View {
         .onChange(of: apiKey) { _, _ in status = .none }
         .onChange(of: model) { _, _ in status = .none }
         .onChange(of: endpoint) { _, _ in status = .none }
+        .onChange(of: useContext) { _, _ in status = .none }
     }
 
     private func save() {
@@ -65,6 +73,7 @@ struct SettingsView: View {
         secrets.apiKey = apiKey
         settings.model = model
         settings.endpoint = endpoint
+        settings.useContext = useContext
 
         // Read the key back to confirm the Keychain write actually persisted.
         status = (secrets.apiKey == apiKey) ? .saved : .failed
