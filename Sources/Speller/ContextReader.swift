@@ -12,6 +12,8 @@ final class ContextReader {
 
     func surroundingText() -> String? {
         let system = AXUIElementCreateSystemWide()
+        // Don't let a hung target app stall the popup — cap AX calls at 0.5s.
+        AXUIElementSetMessagingTimeout(system, 0.5)
 
         var focusedRef: AnyObject?
         guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
