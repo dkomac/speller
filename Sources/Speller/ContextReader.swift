@@ -15,7 +15,7 @@ final class ContextReader {
 
         var focusedRef: AnyObject?
         guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
-              let focused = focusedRef else { return nil }
+              let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
         let element = focused as! AXUIElement
 
         var valueRef: AnyObject?
@@ -23,9 +23,11 @@ final class ContextReader {
               let fullText = valueRef as? String, !fullText.isEmpty else { return nil }
 
         var rangeRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success else { return nil }
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
+              let rangeValue = rangeRef, CFGetTypeID(rangeValue) == AXValueGetTypeID() else { return nil }
+        let axValue = rangeValue as! AXValue
         var cfRange = CFRange(location: 0, length: 0)
-        guard AXValueGetValue(rangeRef as! AXValue, .cfRange, &cfRange) else { return nil }
+        guard AXValueGetValue(axValue, .cfRange, &cfRange) else { return nil }
 
         // Accessibility ranges are UTF-16 units; NSString matches that.
         let ns = fullText as NSString
