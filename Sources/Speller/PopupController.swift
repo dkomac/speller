@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// A panel that can become key even though it is borderless, so it receives key events.
+/// A borderless panel that can still become key (so it receives keystrokes).
 private final class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
@@ -22,22 +22,37 @@ final class PopupController {
         )
 
         let panel = KeyablePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 160),
-            styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 40),
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
         panel.isFloatingPanel = true
         panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear     // SwiftUI draws the rounded material background
+        panel.hasShadow = true
 
         let hosting = NSHostingController(rootView: view)
-        hosting.sizingOptions = [.preferredContentSize]
+        hosting.sizingOptions = [.preferredContentSize]   // panel shrinks/grows to fit content
         panel.contentViewController = hosting
 
-        panel.center()
+        positionNearMouse(panel)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
+    }
+
+    /// Place the popup just below-right of the cursor, clamped to the visible screen.
+    private func positionNearMouse(_ panel: NSPanel) {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
+        let size = panel.frame.size
+        var x = mouse.x + 8
+        var y = mouse.y - 8            // below the cursor (screen origin is bottom-left)
+        if let vis = screen?.visibleFrame {
+            x = min(max(x, vis.minX + 8), vis.maxX - size.width - 8)
+            y = min(max(y, vis.minY + size.height + 8), vis.maxY - 8)
+        }
+        panel.setFrameTopLeftPoint(NSPoint(x: x, y: y))
     }
 
     func close() {

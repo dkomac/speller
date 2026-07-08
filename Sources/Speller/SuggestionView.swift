@@ -3,11 +3,12 @@ import SwiftUI
 enum SpellLoadOutcome {
     case suggestions([String])
     case needsAPIKey
+    case rateLimited
     case failed
 }
 
 private enum PopupMessage {
-    case none, needsKey, failed
+    case none, needsKey, rateLimited, failed
 }
 
 struct SuggestionView: View {
@@ -35,46 +36,67 @@ struct SuggestionView: View {
         _query = State(initialValue: initialQuery)
     }
 
+    private var statusText: String? {
+        switch message {
+        case .needsKey:     return "Add your API key in Settings (menu bar → Settings…)."
+        case .rateLimited:  return "Free models are busy. Wait a moment, press ↩ to retry."
+        case .failed:       return "Couldn't reach the model. Your text is untouched."
+        case .none:         return loading ? nil : (suggestions.isEmpty ? "No suggestions." : nil)
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             TextField("Type a word or describe it…", text: $query)
                 .textFieldStyle(.plain)
-                .font(.title3)
+                .font(.system(size: 15))
                 .focused($fieldFocused)
-                .onSubmit { accept() }   // Return inside the field also means "accept"
-
-            Divider()
+                .onSubmit { submitReturn() }
 
             if loading {
-                Text("Thinking…").foregroundStyle(.secondary)
-            } else if message == .needsKey {
-                Text("Add your OpenRouter API key in Settings (menu bar → Settings…).")
+                Divider().padding(.vertical, 1)
+                Label("Thinking…", systemImage: "ellipsis")
                     .foregroundStyle(.secondary).font(.callout)
-            } else if message == .failed {
-                Text("Couldn't reach the model. Your text is untouched.")
-                    .foregroundStyle(.secondary).font(.callout)
-            } else if suggestions.isEmpty {
-                Text("No suggestions.").foregroundStyle(.secondary)
-            } else {
-                ForEach(Array(suggestions.enumerated()), id: \.offset) { i, word in
-                    Text(word)
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(i == selection ? Color.accentColor.opacity(0.25) : .clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 5))
-                        .onTapGesture { selection = i; accept() }
+            } else if let statusText {
+                Divider().padding(.vertical, 1)
+                Text(statusText).foregroundStyle(.secondary).font(.callout)
+            } else if !suggestions.isEmpty {
+                Divider().padding(.vertical, 1)
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(Array(suggestions.enumerated()), id: \.offset) { i, word in
+                        Text(word)
+                            .font(.system(size: 14))
+                            .padding(.horizontal, 6).padding(.vertical, 3)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(i == selection ? Color.accentColor.opacity(0.85) : .clear)
+                            .foregroundStyle(i == selection ? .white : .primary)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                            .contentShape(Rectangle())
+                            .onTapGesture { selection = i; accept() }
+                    }
                 }
             }
         }
-        .padding(12)
-        .frame(width: 320)
+        .padding(8)
+        .frame(width: 260)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
         .onKeyPress(.upArrow) { move(-1); return .handled }
         .onKeyPress(.downArrow) { move(1); return .handled }
-        .onKeyPress(.return) { accept(); return .handled }
+        .onKeyPress(.return) { submitReturn(); return .handled }
         .onKeyPress(.escape) { onCancel(); return .handled }
         .onChange(of: query) { _, _ in scheduleReload() }   // debounced auto-search while typing
         .task { fieldFocused = true; await reload() }
         .onDisappear { searchTask?.cancel() }
+    }
+
+    /// Return accepts the highlighted suggestion, or — when there's nothing to accept
+    /// (empty list / error / rate-limited) — retries the search.
+    private func submitReturn() {
+        if suggestions.isEmpty {
+            Task { await reload() }
+        } else {
+            accept()
+        }
     }
 
     /// Debounce text edits so we search when the user pauses, not on every keystroke.
@@ -102,6 +124,9 @@ struct SuggestionView: View {
         case .needsAPIKey:
             suggestions = []
             message = hasText ? .needsKey : .none
+        case .rateLimited:
+            suggestions = []
+            message = hasText ? .rateLimited : .none
         case .failed:
             suggestions = []
             message = hasText ? .failed : .none

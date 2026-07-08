@@ -3,7 +3,7 @@ import SpellerCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let settings: SettingsStore = UserDefaultsSettings()
-    let secrets: SecretStore = KeychainSecretStore()
+    let secrets: SecretStore = FileSecretStore()
 
     private var menuBar: MenuBarController!
     private var hotkey: HotkeyManager!
@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: SettingsWindowController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppMenu.install()   // enables ⌘V/⌘C etc. in text fields (accessory apps have no menu bar)
         menuBar = MenuBarController()
         settingsWindow = SettingsWindowController(settings: settings, secrets: secrets)
         hotkey = HotkeyManager()
@@ -24,16 +25,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = SelectionService.ensureAccessibility()
     }
 
+    /// Free models are often rate-limited; if the chosen one is busy we fall through
+    /// to these. Chosen to span DIFFERENT vendors/providers (Google, OpenAI-OSS,
+    /// NVIDIA, small Meta) so they're rarely all throttled at once — Llama-free and
+    /// Qwen-free both route through the same provider (Venice), which is why the old
+    /// list didn't help.
+    private let fallbackModels = [
+        "nvidia/nemotron-3-nano-30b-a3b:free",   // NVIDIA infra — responding when others are throttled
+        "google/gemma-4-31b-it:free",
+        "openai/gpt-oss-120b:free",
+        "meta-llama/llama-3.2-3b-instruct:free",
+    ]
+
     /// Builds a client from the latest settings each time (picks up edits live).
     private func makeClient() -> SpellClient {
-        SpellClient(
+        let primary = settings.model.trimmingCharacters(in: .whitespacesAndNewlines)
+        var seen = Set<String>()
+        let models = ([primary] + fallbackModels).filter { !$0.isEmpty && seen.insert($0).inserted }
+        return SpellClient(
             endpoint: URL(string: settings.endpoint) ?? URL(string: Defaults.endpoint)!,
             apiKey: secrets.apiKey,
-            model: settings.model,
+            models: models,
             transport: URLSessionTransport())
     }
 
     private func startFlow() {
+        // The app the user was in when they triggered — we must reactivate it before
+        // pasting, or ⌘V lands nowhere (our popup has the focus by then).
+        let previousApp = NSWorkspace.shared.frontmostApplication
         Task { @MainActor in
             let word = await selection.captureSelection()
             let client = makeClient()
@@ -42,10 +61,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 load: { query in
                     do { return .suggestions(try await client.suggestions(for: query)) }
                     catch SpellClientError.missingKey { return .needsAPIKey }
+                    catch SpellClientError.rateLimited { return .rateLimited }
                     catch { return .failed }
                 },
                 onAccept: { [weak self] chosen in
-                    Task { await self?.selection.replaceSelection(with: chosen) }
+                    Task { @MainActor in
+                        previousApp?.activate()                       // focus back to their app
+                        try? await Task.sleep(nanoseconds: 150_000_000) // let the switch settle
+                        await self?.selection.replaceSelection(with: chosen)
+                    }
                 })
         }
     }
