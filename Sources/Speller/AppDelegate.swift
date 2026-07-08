@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBar: MenuBarController!
     private var hotkey: HotkeyManager!
     private let selection = SelectionService()
+    private let contextReader = ContextReader()
     private let popup = PopupController()
     private var settingsWindow: SettingsWindowController!
 
@@ -55,11 +56,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let previousApp = NSWorkspace.shared.frontmostApplication
         Task { @MainActor in
             let word = await selection.captureSelection()
+            // Best-effort surrounding text for language detection (gated by the setting).
+            let context = settings.useContext ? contextReader.surroundingText() : nil
             let client = makeClient()
             popup.show(
                 initialWord: word,
                 load: { query in
-                    do { return .suggestions(try await client.suggestions(for: query)) }
+                    do { return .suggestions(try await client.suggestions(for: query, context: context)) }
                     catch SpellClientError.missingKey { return .needsAPIKey }
                     catch SpellClientError.rateLimited { return .rateLimited }
                     catch { return .failed }
