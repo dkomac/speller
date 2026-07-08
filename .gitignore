@@ -1,8 +1,15 @@
+# macOS
 .DS_Store
-build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
 DerivedData/
 *.xcuserstate
 xcuserdata/
 
-# SDD scratch
+# SDD scratch (local orchestration ledger/reports)
 .superpowers/
