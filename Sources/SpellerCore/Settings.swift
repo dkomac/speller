@@ -8,14 +8,18 @@ public enum Defaults {
 public protocol SettingsStore: AnyObject {
     var endpoint: String { get set }
     var model: String { get set }
+    var useContext: Bool { get set }
 }
 
 public final class InMemorySettings: SettingsStore {
     public var endpoint: String
     public var model: String
-    public init(endpoint: String = Defaults.endpoint, model: String = Defaults.model) {
+    public var useContext: Bool
+    public init(endpoint: String = Defaults.endpoint, model: String = Defaults.model,
+                useContext: Bool = true) {
         self.endpoint = endpoint
         self.model = model
+        self.useContext = useContext
     }
 }
 
@@ -30,5 +34,10 @@ public final class UserDefaultsSettings: SettingsStore {
     public var model: String {
         get { defaults.string(forKey: "model") ?? Defaults.model }
         set { defaults.set(newValue, forKey: "model") }
+    }
+    public var useContext: Bool {
+        // `object(forKey:)` (not `bool(forKey:)`) so an absent key defaults to true.
+        get { defaults.object(forKey: "useContext") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "useContext") }
     }
 }
