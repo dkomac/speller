@@ -11,5 +11,8 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 
+# Built app bundle (produced by `make app` / `make install`)
+Speller.app/
+
 # SDD scratch (local orchestration ledger/reports)
 .superpowers/
