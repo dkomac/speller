@@ -10,8 +10,40 @@ public final class InMemorySecretStore: SecretStore {
     public init(apiKey: String = "") { self.apiKey = apiKey }
 }
 
+/// Stores the key in a plain, owner-only-readable file (default:
+/// ~/Library/Application Support/Speller/openrouter.key). No Keychain, so no
+/// permission prompts. The trade-off is the key sits in plaintext on disk —
+/// acceptable for a low-value free-tier key on a personal machine.
+public final class FileSecretStore: SecretStore {
+    private let url: URL
+
+    public init(url: URL? = nil) {
+        if let url {
+            self.url = url
+        } else {
+            let dir = FileManager.default
+                .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Speller", isDirectory: true)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            self.url = dir.appendingPathComponent("openrouter.key")
+        }
+    }
+
+    public var apiKey: String {
+        get {
+            (try? String(contentsOf: url, encoding: .utf8))?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+        set {
+            try? newValue.write(to: url, atomically: true, encoding: .utf8)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                                    ofItemAtPath: url.path)
+        }
+    }
+}
+
 public final class KeychainSecretStore: SecretStore {
-    private let service = "io.beyondloops.speller"
+    private let service = "speller"
     private let account = "openrouter-api-key"
 
     public init() {}
