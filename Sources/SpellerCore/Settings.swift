@@ -16,7 +16,7 @@ public final class InMemorySettings: SettingsStore {
     public var model: String
     public var useContext: Bool
     public init(endpoint: String = Defaults.endpoint, model: String = Defaults.model,
-                useContext: Bool = true) {
+                useContext: Bool = false) {
         self.endpoint = endpoint
         self.model = model
         self.useContext = useContext
@@ -36,8 +36,8 @@ public final class UserDefaultsSettings: SettingsStore {
         set { defaults.set(newValue, forKey: "model") }
     }
     public var useContext: Bool {
-        // `object(forKey:)` (not `bool(forKey:)`) so an absent key defaults to true.
-        get { defaults.object(forKey: "useContext") as? Bool ?? true }
+        // Off by default (privacy): don't send surrounding text until the user opts in.
+        get { defaults.object(forKey: "useContext") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "useContext") }
     }
 }

@@ -31,8 +31,9 @@ struct SettingsView: View {
             }
 
             Section("Context") {
-                Toggle("Use surrounding text as context (for language detection)",
-                       isOn: $useContext)
+                Toggle("Send surrounding text for language detection", isOn: $useContext)
+                Text("Off by default. When on, a small window of text around your selection is sent to the model so it can detect the language. Leave off in apps with sensitive content.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Text("Default provider is OpenRouter's free tier. Paste an OpenRouter API key and use a free model id (ending in :free).")

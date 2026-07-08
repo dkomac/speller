@@ -19,13 +19,13 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.model, "other/model:free")
     }
 
-    func test_inMemory_useContext_defaultsTrue() {
-        XCTAssertTrue(InMemorySettings().useContext)
+    func test_inMemory_useContext_defaultsFalse() {
+        XCTAssertFalse(InMemorySettings().useContext)   // opt-in (privacy)
     }
 
     func test_inMemory_useContext_roundTrips() {
         let s = InMemorySettings()
-        s.useContext = false
-        XCTAssertFalse(s.useContext)
+        s.useContext = true
+        XCTAssertTrue(s.useContext)
     }
 }
