@@ -25,7 +25,7 @@ public struct SpellClient {
     /// frequently rate-limited (HTTP 429) at the provider; on 429 or an unusable response
     /// we fall through to the next model. If every model is rate-limited, throws
     /// `.rateLimited` so the UI can tell the user to retry rather than "couldn't reach".
-    public func suggestions(for input: String) async throws -> [String] {
+    public func suggestions(for input: String, context: String? = nil) async throws -> [String] {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw SpellClientError.emptyInput }
         guard !apiKey.isEmpty else { throw SpellClientError.missingKey }
@@ -40,7 +40,7 @@ public struct SpellClient {
         var lastError: SpellClientError = .transport
 
         for model in models {
-            let body = SpellRequest.body(model: model, input: trimmed)
+            let body = SpellRequest.body(model: model, input: trimmed, context: context)
             do {
                 let (data, status) = try await transport.post(url: endpoint, headers: headers, body: body)
                 if status == 429 {

@@ -110,6 +110,18 @@ final class SpellClientTests: XCTestCase {
             XCTAssertEqual(error as? SpellClientError, .rateLimited)
         }
     }
+
+    func test_suggestions_sendsContextInBody() async throws {
+        var seenBody = Data()
+        let body = #"{"choices":[{"message":{"content":"[\"dig\"]"}}]}"#
+        let stub = StubTransport(result: .success((Data(body.utf8), 200)),
+                                 captured: { _, _, b in seenBody = b })
+        let client = SpellClient(endpoint: endpoint, apiKey: "k", models: ["m"], transport: stub)
+        _ = try await client.suggestions(for: "dej", context: "jag älskar dej")
+        let obj = try JSONSerialization.jsonObject(with: seenBody) as! [String: Any]
+        let messages = obj["messages"] as! [[String: String]]
+        XCTAssertTrue(messages[1]["content"]!.contains("jag älskar dej"))
+    }
 }
 
 // Small async-throws assertion helper.
